@@ -1,16 +1,19 @@
 language: csharp
 dotnet: 2.0.0
 mono:
- - latest
+- latest
 matrix:
   include:
-    - os: linux
-      dist: trusty      
-      sudo: false
-    - os: osx
-      osx_image: xcode9      
-      sudo: required               
-script:  
-  - ulimit -n8192  
-  - chmod +x build.sh
-  - ./build.sh
+  - os: linux
+    dist: trusty
+    sudo: false
+  - os: osx
+    osx_image: xcode9
+    sudo: required
+script:
+- ulimit -n8192
+- chmod +x build.sh
+- "./build.sh"
+env:
+  matrix:
+    secure: lCOTAl70hSwXvk1DRxJud67VaYptVXd4VPt2XfpbhVvhJHXXDPaYos0bdA5DM4Tk8ZyVTIN40OZfUvqhfJ0qUYGpV7eip49IG7f19FbjQWEocD/Az+J0PA4h4aX96jsO3n0E3qXzPT2IcL+s6rboCHkU5Wtya1u8KJo2ewA4RaJ7Op7ko0072nmkeeJm/d8c0huCICoRtUeOCPn6QPjL03/e47moVDGIjOzyovDntWXjZAtCwlbSCtNRNoVbWhxcScZ1DjhhjurUmtbW/mGgXEfcVgrF2Q1hGwaWy06HQqfSSKX0/DVnBbJ5WgXqm5Qno5JwjImxW/TGSNA8GoVEsRIYGEZM5Hf3te0yuERLm+z3aVz/+gNYF1UQSNYjNHR7fn/RP0ajwEnHb9NDXcNxRkEoobeUvu27EWE56K8meQ83J5vcz6vYqxIJK9O/7rBgMoxamtH/JLRXVbTZmxx6zM4oxcEs0BLI42/sMq3ZaZ9oNbzrhOk3U/guLErXaXyGEAkQPLL2/WPvzkzo12Qsyo7qE/XUXxWbCl6xLbm3c8f1hFmo4ma2kaYqH2u7ZnfNhokabgmj5KbrXDUGzarPJ+9RjlCbB5KhvsaZugw1LalEnbiJVKdJRznt8JFfv3qT0QwUG1zBhcCZrYPd1YrAborijjuR97gEj+e/SyTdwNo=
