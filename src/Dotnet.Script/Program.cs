@@ -59,7 +59,7 @@ namespace Dotnet.Script
             var interactive = app.Option("-i | --interactive", "Execute a script and drop into the interactive mode afterwards.", CommandOptionType.NoValue);
 
             var configuration = app.Option("-c | --configuration <configuration>", "Configuration to use for running the script [Release/Debug] Default is \"Debug\"", CommandOptionType.SingleValue);
-            
+
             var debugMode = app.Option(DebugFlagShort + " | " + DebugFlagLong, "Enables debug output.", CommandOptionType.NoValue);
 
             var argsBeforeDoubleHyphen = args.TakeWhile(a => a != "--").ToArray();
@@ -81,6 +81,44 @@ namespace Dotnet.Script
                     if (!string.IsNullOrWhiteSpace(code.Value))
                     {                        
                         exitCode = await RunCode(code.Value, debugMode.HasValue(), app.RemainingArguments.Concat(argsAfterDoubleHypen), cwd.Value());                        
+                    }
+                    return exitCode;
+                });
+            });
+
+            app.Command("compile", c =>
+            {
+                c.Description = "Compile a script into a DLL.";
+                var scriptPath = c.Argument("script", "Path to CSX script");
+                var outputDll = c.Option("-o |--output <path>", "Path to which the file should be output. Defaults to <scriptName>.dll in current directory.", CommandOptionType.SingleValue);
+
+                c.OnExecute(() =>
+                {
+                    int exitCode = 0;
+                    if (!string.IsNullOrWhiteSpace(scriptPath.Value))
+                    {
+                        var optimizationLevel = OptimizationLevel.Debug;
+                        if (configuration.HasValue() && configuration.Value().ToLower() == "release")
+                        {
+                            optimizationLevel = OptimizationLevel.Release;
+                        }
+                        exitCode = CompileToDll(scriptPath.Value, outputDll.Value(), debugMode.HasValue(), optimizationLevel, app.RemainingArguments.Concat(argsAfterDoubleHypen));
+                    }
+                    return exitCode;
+                });
+            });
+
+            app.Command("exec", c =>
+            {
+                c.Description = "Run a script from a DLL.";
+                var dllPath = c.Argument("dll", "Path to DLL based script");
+
+                c.OnExecute(async () =>
+                {
+                    int exitCode = 0;
+                    if (!string.IsNullOrWhiteSpace(dllPath.Value))
+                    {
+                        exitCode = await RunFromDll(dllPath.Value);
                     }
                     return exitCode;
                 });
@@ -183,6 +221,54 @@ namespace Dotnet.Script
             var compiler = GetScriptCompiler(debugMode);
             var runner = new ScriptRunner(compiler, compiler.Logger, ScriptConsole.Default);
             return runner.Execute<int>(context);
+        }
+
+        private static int CompileToDll(string file, string outputPath, bool debugMode, OptimizationLevel optimizationLevel, IEnumerable<string> args)
+        {
+            if (!File.Exists(file))
+            {
+                throw new Exception($"Couldn't find file '{file}'");
+            }
+
+            var absoluteFilePath = Path.IsPathRooted(file) ? file : Path.Combine(Directory.GetCurrentDirectory(), file);
+            var absoluteOutputPath = outputPath != null ? Path.IsPathRooted(outputPath) ? outputPath : Path.Combine(Directory.GetCurrentDirectory(), outputPath) : Path.ChangeExtension(absoluteFilePath, "dll");
+            var directory = Path.GetDirectoryName(absoluteFilePath);
+
+            using (var filestream = new FileStream(absoluteFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                var sourceText = SourceText.From(filestream);
+                var context = new ScriptContext(sourceText, directory, args, absoluteFilePath, optimizationLevel);
+                var compiler = GetScriptCompiler(debugMode);
+                var emitter = new ScriptEmitter(ScriptConsole.Default, compiler);
+                var result = emitter.Emit<int>(context);
+
+                if (result == ScriptEmitResult.Error)
+                {
+                    return -1;
+                }
+
+                using (result.PeStream)
+                using (result.PdbStream)
+                {
+                    File.WriteAllBytes(absoluteOutputPath, result.PeStream.ToArray());
+                    File.WriteAllBytes(Path.ChangeExtension(absoluteOutputPath, "pdb"), result.PdbStream.ToArray());
+                    return 0;
+                }
+            }
+        }
+
+        private static Task<int> RunFromDll(string file)
+        {
+            if (!File.Exists(file))
+            {
+                throw new Exception($"Couldn't find file '{file}'");
+            }
+
+            var absoluteFilePath = Path.IsPathRooted(file) ? file : Path.Combine(Directory.GetCurrentDirectory(), file);
+
+            var compiler = GetScriptCompiler(false);
+            var runner = new ScriptRunner(compiler, compiler.Logger, ScriptConsole.Default);
+            return runner.Execute<int>(absoluteFilePath);
         }
 
         private static string GetVersionInfo()

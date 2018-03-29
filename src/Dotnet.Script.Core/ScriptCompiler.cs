@@ -18,9 +18,71 @@ using Microsoft.CodeAnalysis.CSharp.Scripting.Hosting;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using RuntimeAssembly = Dotnet.Script.DependencyModel.Runtime.RuntimeAssembly;
+using System.IO;
+using Microsoft.CodeAnalysis.Emit;
 
 namespace Dotnet.Script.Core
 {
+    public class ScriptEmitResult
+    {
+        public static ScriptEmitResult Error { get; } = new ScriptEmitResult();
+
+        private ScriptEmitResult() { }
+
+        public ScriptEmitResult(MemoryStream peStream, MemoryStream pdbStream)
+        {
+            PeStream = peStream;
+            PdbStream = pdbStream;
+        }
+
+        public MemoryStream PeStream { get; }
+        public MemoryStream PdbStream { get; }
+    }
+
+    public class ScriptEmitter
+    {
+        private readonly ScriptConsole _scriptConsole;
+        private readonly ScriptCompiler _scriptCompiler;
+
+        public ScriptEmitter(ScriptConsole scriptConsole, ScriptCompiler scriptCompiler)
+        {
+            _scriptConsole = scriptConsole;
+            _scriptCompiler = scriptCompiler;
+        }
+
+        public virtual ScriptEmitResult Emit<TReturn>(ScriptContext context)
+        {
+            try
+            {
+                var compilationContext = _scriptCompiler.CreateCompilationContext<TReturn, CommandLineScriptGlobals>(context);
+                var compilation = compilationContext.Script.GetCompilation();
+
+                using (var peStream = new MemoryStream())
+                using (var pdbStream = new MemoryStream())
+                {
+                    var result = compilation.Emit(peStream, pdbStream: pdbStream, options: new EmitOptions().
+                        WithDebugInformationFormat(DebugInformationFormat.PortablePdb));
+
+                    if (result.Success)
+                    {
+                        return new ScriptEmitResult(peStream, pdbStream);
+                    }
+
+                    return ScriptEmitResult.Error;
+                }
+            }
+            catch (CompilationErrorException e)
+            {
+                foreach (var diagnostic in e.Diagnostics)
+                {
+                    _scriptConsole.WritePrettyError(diagnostic.ToString());
+                }
+
+                throw;
+            }
+        }
+    }
+
     public class ScriptCompiler
     {
         // Note: Windows only, Mac and Linux needs something else?

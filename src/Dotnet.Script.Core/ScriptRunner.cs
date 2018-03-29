@@ -1,3 +1,5 @@
+using System;
+using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis.CSharp.Scripting.Hosting;
 using Microsoft.CodeAnalysis.Scripting;
@@ -16,6 +18,19 @@ namespace Dotnet.Script.Core
             Logger = logger;
             ScriptCompiler = scriptCompiler;
             ScriptConsole = scriptConsole;
+        }
+
+        public async Task<TReturn> Execute<TReturn>(string dllPath)
+        {
+            var assembly = Assembly.LoadFrom(dllPath);
+
+            var type = assembly.GetType("Submission#0");
+            var method = type.GetMethod("<Factory>", BindingFlags.Static | BindingFlags.Public);
+
+            var submissionStates = new object[2];
+            submissionStates[0] = new CommandLineScriptGlobals(ScriptConsole.Out, CSharpObjectFormatter.Instance);
+            var resultTask = method.Invoke(null, new[] { submissionStates }) as Task<TReturn>;
+            return await resultTask;
         }
 
         public Task<TReturn> Execute<TReturn>(ScriptContext context)
