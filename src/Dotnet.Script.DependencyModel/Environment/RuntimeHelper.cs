@@ -22,7 +22,7 @@ namespace Dotnet.Script.DependencyModel.Environment
             return GetPlatformIdentifier() == "win";
         }
 
-        public static string TargetFramework = "netcoreapp2.0";
+        public static string TargetFramework = "netcoreapp2.1";
 
         private static string GetDotnetBinaryPath()
         {
