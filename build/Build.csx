@@ -1,4 +1,4 @@
-#! "netcoreapp2.1"
+#! "netcoreapp2.0"
 #load "nuget:Dotnet.Build, 0.2.9"
 #load "nuget:github-changelog, 0.1.4"
 #load "Choco.csx"
