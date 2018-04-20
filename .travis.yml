@@ -25,6 +25,7 @@ matrix:
         - sudo curl https://dot.net/v1/dotnet-install.sh -o dotnet-install.sh
         - sudo chmod +x dotnet-install.sh
         - sudo ./dotnet-install.sh --channel 2.0 --install-dir /usr/local/share/dotnet/sdk
+        - source ~/.bash_profile
         - dotnet --info        
 script:    
   
