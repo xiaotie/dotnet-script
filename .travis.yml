@@ -19,7 +19,9 @@ matrix:
         - sudo apt-get install dotnet-sdk-2.0.3
     - os: osx
       osx_image: xcode9      
-      sudo: required               
+      sudo: required
+      install:
+        - sudo curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --channel 2.0 --version 2.0.3
 script:  
   - ulimit -n8192  
   - chmod +x build.sh
