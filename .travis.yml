@@ -22,7 +22,7 @@ matrix:
       sudo: required
       install:
         - ulimit -n8192  
-        - sudo curl https://www.microsoft.com/net/download/thank-you/dotnet-sdk-2.1.300-preview2-macos-x64-installer -o dotnet-sdk.pkg
+        - sudo curl -L https://download.microsoft.com/download/3/7/C/37C0D2E3-2056-4F9A-A67C-14DEFBD70F06/dotnet-sdk-2.1.300-preview2-008530-osx-x64.pkg -o dotnet-sdk.pkg
         - sudo installer -pkg dotnet-sdk.pkg -target /
         - dotnet --info        
 script:    
