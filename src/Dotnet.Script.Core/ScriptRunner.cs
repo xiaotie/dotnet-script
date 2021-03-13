@@ -33,18 +33,6 @@ namespace Dotnet.Script.Core
             var runtimeDeps = ScriptCompiler.RuntimeDependencyResolver.GetDependenciesForLibrary(dllPath);
             var runtimeDepsMap = ScriptCompiler.CreateScriptDependenciesMap(runtimeDeps);
             var assembly = Assembly.LoadFrom(dllPath); // this needs to be called prior to 'AppDomain.CurrentDomain.AssemblyResolve' event handler added
-            try
-            {
-                //var p = runtimeDepsMap["System.Drawing.Common"].Path;
-                //Console.WriteLine(p);
-                //var a2 = Assembly.Load("System.Drawing.Common");
-                //var a3 = Assembly.LoadFrom(runtimeDepsMap["System.Drawing.Common"].Path);
-            }
-            catch(Exception ex)
-            {
-                Console.WriteLine(ex.Message);
-                Console.WriteLine(ex.StackTrace);
-            }
             AppDomain.CurrentDomain.AssemblyResolve += (sender, args) => ResolveAssembly(args, runtimeDepsMap);
 
             var type = assembly.GetType("Submission#0");

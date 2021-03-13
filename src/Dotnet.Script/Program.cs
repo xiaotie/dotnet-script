@@ -22,7 +22,7 @@ namespace Dotnet.Script
 
         public static int Main(string[] args)
         {
-            //args = new string[] { "-d","D:\\docker\\images\\test\\scripts\\main.csx" };
+            //args = new string[] { "-d", @"D:\Projects\00_Public_Geb.Common\nscript\samples\winform.csx" };
             try
             {
                 return Wain(args);
@@ -133,7 +133,7 @@ namespace Dotnet.Script
                         c.ShowHelp();
                         return 0;
                     }
-                    scaffolder.CreateNewScriptFile(fileNameArgument.Value, cwd.Value() ?? Directory.GetCurrentDirectory());
+                    scaffolder.CreateNewScriptFileFromTemplate(fileNameArgument.Value, cwd.Value() ?? Directory.GetCurrentDirectory(), "helloworld.csx.template");
                     return 0;
                 });
             });
