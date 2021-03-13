@@ -1,10 +1,8 @@
-using Dotnet.Script.Core.Internal;
 using Dotnet.Script.DependencyModel.Environment;
 using Dotnet.Script.DependencyModel.Logging;
 using Dotnet.Script.DependencyModel.Process;
 using Dotnet.Script.DependencyModel.ProjectSystem;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.Scripting;
 using System;
 using System.IO;
 using System.Reflection;
@@ -13,7 +11,7 @@ namespace Dotnet.Script.Core
 {
     public class ScriptPublisher
     {
-        private const string ScriptingVersion = "2.8.2";
+        private const string ScriptingVersion = "3.9.0";
 
         private readonly ScriptProjectProvider _scriptProjectProvider;
         private readonly ScriptEmitter _scriptEmitter;
@@ -57,35 +55,41 @@ namespace Dotnet.Script.Core
             File.Copy(sourceNugetPropsPath, destinationNugetPropsPath, overwrite: true);
 
             // only display published if we aren't auto publishing to temp folder
-            if (!scriptAssemblyPath.StartsWith(Path.GetTempPath()))
+            if (!scriptAssemblyPath.StartsWith(FileUtils.GetTempPath()))
             {
                 _scriptConsole.WriteSuccess($"Published {context.FilePath} to { scriptAssemblyPath}");
             }
         }
 
-        public void CreateExecutable<TReturn, THost>(ScriptContext context, LogFactory logFactory, string runtimeIdentifier)
+        public void CreateExecutable<TReturn, THost>(ScriptContext context, LogFactory logFactory, string runtimeIdentifier, string executableFileName = null)
         {
             if (runtimeIdentifier == null)
             {
                 throw new ArgumentNullException(nameof(runtimeIdentifier));
             }
 
+            executableFileName = executableFileName ?? Path.GetFileNameWithoutExtension(context.FilePath);
             const string AssemblyName = "scriptAssembly";
 
-            var tempProjectPath = ScriptProjectProvider.GetPathToProjectFile(Path.GetDirectoryName(context.FilePath), ScriptEnvironment.Default.TargetFramework);
+            var tempProjectPath = ScriptProjectProvider.GetPathToProjectFile(Path.GetDirectoryName(context.FilePath), _scriptEnvironment.TargetFramework);
+            var renamedProjectPath = ScriptProjectProvider.GetPathToProjectFile(Path.GetDirectoryName(context.FilePath), _scriptEnvironment.TargetFramework, executableFileName);
             var tempProjectDirectory = Path.GetDirectoryName(tempProjectPath);
 
             var scriptAssemblyPath = CreateScriptAssembly<TReturn, THost>(context, tempProjectDirectory, AssemblyName);
+
             var projectFile = new ProjectFile(File.ReadAllText(tempProjectPath));
             projectFile.PackageReferences.Add(new PackageReference("Microsoft.CodeAnalysis.Scripting", ScriptingVersion));
             projectFile.AssemblyReferences.Add(new AssemblyReference(scriptAssemblyPath));
-            projectFile.Save(tempProjectPath);
+            projectFile.Save(renamedProjectPath);
 
             CopyProgramTemplate(tempProjectDirectory);
 
             var commandRunner = new CommandRunner(logFactory);
             // todo: may want to add ability to return dotnet.exe errors
-            var exitcode = commandRunner.Execute("dotnet", $"publish \"{tempProjectPath}\" -c Release -r {runtimeIdentifier} -o \"{context.WorkingDirectory}\" {(ScriptEnvironment.Default.TargetFramework == "netcoreapp3.0" ? "/p:PublishSingleFile=true" : "")} /p:DebugType=Embedded");
+            var publishSingleFileArgument = ScriptEnvironment.Default.NetCoreVersion.Major >= 3 ? "/p:PublishSingleFile=true" : string.Empty;
+            var includeNativeLibrariesForSelfExtract = ScriptEnvironment.Default.NetCoreVersion.Major >= 5 ? "/p:IncludeNativeLibrariesForSelfExtract=true" : string.Empty;
+
+            var exitcode = commandRunner.Execute("dotnet", $"publish \"{renamedProjectPath}\" -c Release -r {runtimeIdentifier} -o \"{context.WorkingDirectory}\" {publishSingleFileArgument} {includeNativeLibrariesForSelfExtract} /p:DebugType=Embedded");
 
             if (exitcode != 0)
             {
@@ -97,7 +101,7 @@ namespace Dotnet.Script.Core
 
         private string CreateScriptAssembly<TReturn, THost>(ScriptContext context, string outputDirectory, string assemblyFileName)
         {
-            var emitResult = _scriptEmitter.Emit<TReturn, THost>(context);
+            var emitResult = _scriptEmitter.Emit<TReturn, THost>(context, assemblyFileName);
             var assemblyPath = Path.Combine(outputDirectory, $"{assemblyFileName}.dll");
             using (var peFileStream = new FileStream(assemblyPath, FileMode.Create))
             using (emitResult.PeStream)

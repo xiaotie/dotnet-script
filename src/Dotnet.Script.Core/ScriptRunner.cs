@@ -33,15 +33,19 @@ namespace Dotnet.Script.Core
             var runtimeDeps = ScriptCompiler.RuntimeDependencyResolver.GetDependenciesForLibrary(dllPath);
             var runtimeDepsMap = ScriptCompiler.CreateScriptDependenciesMap(runtimeDeps);
             var assembly = Assembly.LoadFrom(dllPath); // this needs to be called prior to 'AppDomain.CurrentDomain.AssemblyResolve' event handler added
-
-            AppDomain.CurrentDomain.AssemblyResolve += (sender, args) =>
+            try
             {
-                var assemblyName = new AssemblyName(args.Name);
-                var result = runtimeDepsMap.TryGetValue(assemblyName.Name, out RuntimeAssembly runtimeAssembly);
-                if (!result) throw new Exception($"Unable to locate assembly '{assemblyName.Name}: {assemblyName.Version}'");
-                var loadedAssembly = Assembly.LoadFrom(runtimeAssembly.Path);
-                return loadedAssembly;
-            };
+                //var p = runtimeDepsMap["System.Drawing.Common"].Path;
+                //Console.WriteLine(p);
+                //var a2 = Assembly.Load("System.Drawing.Common");
+                //var a3 = Assembly.LoadFrom(runtimeDepsMap["System.Drawing.Common"].Path);
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                Console.WriteLine(ex.StackTrace);
+            }
+            AppDomain.CurrentDomain.AssemblyResolve += (sender, args) => ResolveAssembly(args, runtimeDepsMap);
 
             var type = assembly.GetType("Submission#0");
             var method = type.GetMethod("<Factory>", BindingFlags.Static | BindingFlags.Public);
@@ -54,10 +58,9 @@ namespace Dotnet.Script.Core
             submissionStates[0] = globals;
 
             var resultTask = method.Invoke(null, new[] { submissionStates }) as Task<TReturn>;
-            TReturn returnValue;
             try
             {
-                returnValue = await resultTask;
+                _ = await resultTask;
             }
             catch (System.Exception ex)
             {
@@ -95,6 +98,15 @@ namespace Dotnet.Script.Core
         {
             var scriptResult = await compilationContext.Script.RunAsync(host, ex => true).ConfigureAwait(false);
             return ProcessScriptState(scriptResult);
+        }
+
+        internal Assembly ResolveAssembly(ResolveEventArgs args, Dictionary<string, RuntimeAssembly> runtimeDepsMap)
+        {
+            var assemblyName = new AssemblyName(args.Name);
+            var result = runtimeDepsMap.TryGetValue(assemblyName.Name, out RuntimeAssembly runtimeAssembly);
+            if (!result) return null;
+            var loadedAssembly = Assembly.LoadFrom(runtimeAssembly.Path);
+            return loadedAssembly;
         }
 
         protected TReturn ProcessScriptState<TReturn>(ScriptState<TReturn> scriptState)
